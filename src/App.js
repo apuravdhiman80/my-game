@@ -1,18 +1,27 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import "./App.css";
 
 export default function App() {
   const canvasRef = useRef(null);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
 
-    let paddle = { x: 340, y: 550, w: 120, h: 14, speed: 7 };
-    let ball = { x: 400, y: 540, vx: 4, vy: -4, r: 10, stuck: true };
+    // Detect mobile
+    setIsMobile(window.innerWidth < 768);
+
+    let width = isMobile ? window.innerWidth * 0.95 : 800;
+    let height = isMobile ? window.innerHeight * 0.7 : 600;
+    canvas.width = width;
+    canvas.height = height;
+
+    let paddle = { x: width / 2 - 60, y: height - 40, w: isMobile ? 140 : 120, h: 14, speed: isMobile ? 5 : 7 };
+    let ball = { x: width / 2, y: height - 50, vx: 4, vy: -4, r: isMobile ? 12 : 10, stuck: true };
     let bricks = [];
     let particles = [];
-    let rows = 6, cols = 10;
+    let rows = 6, cols = Math.floor(width / 80);
     let score = 0, displayScore = 0;
     let left = false, right = false;
 
@@ -22,9 +31,9 @@ export default function App() {
         bricks[r] = [];
         for (let c = 0; c < cols; c++) {
           bricks[r][c] = {
-            x: c * 80,
+            x: c * (width / cols),
             y: r * 25 + 50,
-            w: 78,
+            w: width / cols - 2,
             h: 20,
             hp: 1,
             alpha: 1
@@ -50,7 +59,7 @@ export default function App() {
     function update() {
       if (left) paddle.x -= paddle.speed;
       if (right) paddle.x += paddle.speed;
-      paddle.x = Math.max(0, Math.min(800 - paddle.w, paddle.x));
+      paddle.x = Math.max(0, Math.min(width - paddle.w, paddle.x));
 
       if (ball.stuck) {
         ball.x = paddle.x + paddle.w / 2;
@@ -59,9 +68,9 @@ export default function App() {
         ball.x += ball.vx;
         ball.y += ball.vy;
 
-        if (ball.x - ball.r < 0 || ball.x + ball.r > 800) ball.vx *= -1;
+        if (ball.x - ball.r < 0 || ball.x + ball.r > width) ball.vx *= -1;
         if (ball.y - ball.r < 0) ball.vy *= -1;
-        if (ball.y + ball.r > 600) {
+        if (ball.y + ball.r > height) {
           ball.stuck = true;
           score = 0;
           initBricks();
@@ -115,9 +124,9 @@ export default function App() {
     }
 
     function draw() {
-      ctx.clearRect(0, 0, 800, 600);
+      ctx.clearRect(0, 0, width, height);
 
-      // Paddle with glow
+      // Paddle
       let paddleGrad = ctx.createLinearGradient(paddle.x, paddle.y, paddle.x + paddle.w, paddle.y);
       paddleGrad.addColorStop(0, "#0ff");
       paddleGrad.addColorStop(1, "#0f0");
@@ -127,7 +136,7 @@ export default function App() {
       ctx.fillRect(paddle.x, paddle.y, paddle.w, paddle.h);
       ctx.shadowBlur = 0;
 
-      // Ball glow
+      // Ball
       ctx.shadowBlur = 15;
       ctx.shadowColor = "#fff";
       ctx.fillStyle = "#fff";
@@ -136,7 +145,7 @@ export default function App() {
       ctx.fill();
       ctx.shadowBlur = 0;
 
-      // Bricks with fade animation
+      // Bricks
       bricks.forEach(row =>
         row.forEach(br => {
           if (br.hp > 0 || br.alpha > 0) {
@@ -174,7 +183,7 @@ export default function App() {
     }
     loop();
 
-    // Controls
+    // Keyboard
     const handleKeyDown = e => {
       if (e.key === "ArrowLeft" || e.key === "a") left = true;
       if (e.key === "ArrowRight" || e.key === "d") right = true;
@@ -185,24 +194,47 @@ export default function App() {
       if (e.key === "ArrowRight" || e.key === "d") right = false;
     };
 
+    // Touch controls
+    const handleTouchStart = e => {
+      if (e.touches[0].clientX < width / 2) {
+        left = true;
+      } else {
+        right = true;
+      }
+    };
+    const handleTouchEnd = () => {
+      left = false;
+      right = false;
+    };
+    const handleTouchMove = e => {
+      let touchX = e.touches[0].clientX;
+      paddle.x = touchX - paddle.w / 2;
+    };
+
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
+    canvas.addEventListener("touchstart", handleTouchStart);
+    canvas.addEventListener("touchend", handleTouchEnd);
+    canvas.addEventListener("touchmove", handleTouchMove);
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
+      canvas.removeEventListener("touchstart", handleTouchStart);
+      canvas.removeEventListener("touchend", handleTouchEnd);
+      canvas.removeEventListener("touchmove", handleTouchMove);
     };
-  }, []);
+  }, [isMobile]);
 
   return (
     <div className="app-container">
       <h1>🌌 Neon Brick Breaker</h1>
       <div className="game-container">
-        <canvas ref={canvasRef} width={800} height={600}></canvas>
+        <canvas ref={canvasRef}></canvas>
       </div>
       <footer>
         <p>
-          Use <b>← / →</b> or <b>A / D</b> to move | Press <b>Space</b> to launch
+          Use <b>← / →</b> or touch left/right screen | Press <b>Space</b> to launch
         </p>
       </footer>
     </div>
